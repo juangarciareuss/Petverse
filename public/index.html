@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eff2e9">
+  <meta name="description" content="Un pequeño compañero. Una historia que crece contigo. Adopta y cuida tu mascota en PetVerse.">
+  <title>PetVerse · Una amistad que crece</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header">
+      <a class="brand" href="/" aria-label="PetVerse, inicio"><span class="brand-icon" aria-hidden="true">✦</span> petverse<span class="brand-dot">.</span></a>
+      <div class="header-end"><span class="version">PRIMERA AVENTURA</span><button id="settings-button" class="icon-button" aria-label="Abrir ajustes"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 3h6l1 3 3 1 2 5-2 4-3 1-1 4H9l-1-4-3-1-2-4 2-5 3-1Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+    </header>
+    <main>
+      <div class="intro-line"><span class="eyebrow">UN PEQUEÑO MUNDO, UNA GRAN AMISTAD</span><span id="connection" class="connection">Conectando…</span></div>
+      <p id="trial-notice" class="trial-banner" hidden></p>
+      <section id="loading" class="loading" aria-live="polite"><span class="loading-star">✦</span><h1>Un poquito de magia…</h1><p>Estamos preparando vuestro pequeño mundo.</p></section>
+      <section id="offline" class="loading" hidden><span class="loading-star">☁</span><h1>No podemos conectar</h1><p id="offline-message">Necesitamos conexión para guardar los cuidados y consultar la edad de tu mascota.</p><button class="primary-button" id="retry">Volver a intentar</button></section>
+      <div id="game" hidden>
+        <section id="lab-panel" class="lab-panel" hidden aria-label="Laboratorio de desarrollo">
+          <div class="lab-header"><div><span class="eyebrow">RELOJ SIMULADO · MASCOTA DE PRUEBA</span><h2>Laboratorio de desarrollo</h2></div><button id="lab-exit" class="text-button">Volver a mi mascota</button></div>
+          <p>Avanza el reloj para probar el crecimiento hoy. Esta mascota tiene sus propios recuerdos; tu partida normal conserva su tiempo real.</p>
+          <strong id="lab-time" class="lab-time"></strong>
+          <div class="lab-steps"><button data-lab-step="1m">+1 minuto</button><button data-lab-step="6h">+6 horas</button><button data-lab-step="1d">+1 día</button><button data-lab-step="7d">+7 días</button><button id="lab-next" data-lab-step="next_stage">Siguiente etapa</button></div>
+          <div class="lab-footer"><span>Para repetir un cuidado, avanza un minuto. Las sorpresas siguen sus probabilidades.</span><button id="lab-reset" class="text-button">Reiniciar mascota de prueba</button></div>
+        </section>
+        <div class="page-title"><div><h1 id="heading">Alguien muy especial<br>está a punto de llegar.</h1><p id="subtitle">Una nueva amistad, a tu ritmo.</p></div><button id="share-button" class="soft-button" aria-label="Compartir un recuerdo" hidden><svg class="arrow-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 18 18 6 M6 6h12v12"/></svg> Compartir un recuerdo</button></div>
+        <div class="game-grid">
+          <section class="habitat" aria-label="El hogar de tu mascota">
+            <div class="habitat-top"><span class="location"><span aria-hidden="true">❋</span> El rincón de casa</span><span id="stage-badge" class="stage-badge">LUMIS · DÍA 0</span></div>
+            <div id="pet-scene" class="pet-scene" data-color="peach" data-stage="newborn" data-expression="calm" data-reaction="idle">
+              <svg class="scene-art" viewBox="0 0 620 390" aria-hidden="true">
+                <defs><linearGradient id="window-light" x2="0" y2="1"><stop stop-color="#e1eddc"/><stop offset="1" stop-color="#f6f4d8"/></linearGradient></defs>
+                <rect x="217" y="15" width="184" height="192" rx="92" fill="#e4e7d6"/>
+                <rect x="229" y="27" width="160" height="169" rx="80" fill="url(#window-light)"/>
+                <circle cx="334" cy="79" r="26" fill="#fffbe5"/>
+                <path d="M229 158 Q263 105 307 161 Q350 130 389 156 L389 196 L229 196Z" fill="#c6d7be" opacity=".8"/>
+                <path d="M309 30 V196 M229 117 H389" stroke="#e7e9d9" stroke-width="7"/>
+                <path d="M82 234 Q97 172 129 180 Q139 209 106 240" fill="#8bab83"/>
+                <path d="M105 230 Q60 207 65 176 Q94 175 106 224 M107 222 Q119 166 143 156 Q159 190 111 230" fill="#a1b896"/>
+                <path d="M91 231 H127 L122 274 H97Z" fill="#d7b89d"/><path d="M90 233 H129" stroke="#c8a78b" stroke-width="8" stroke-linecap="round"/>
+                <ellipse cx="311" cy="307" rx="169" ry="48" fill="#e0d4bb" opacity=".4"/>
+                <ellipse cx="311" cy="300" rx="165" ry="46" fill="#f8e8cf"/><ellipse cx="311" cy="299" rx="145" ry="35" fill="none" stroke="#e9d6b6" stroke-width="2" stroke-dasharray="3 5"/>
+                <path d="M481 239 L510 231 L530 243 L502 252Z" fill="#dbcfc0"/><path d="M481 239 V256 L502 267 V252Z" fill="#c9baa8"/><path d="M502 252 L530 243 V259 L502 267Z" fill="#eee5d9"/>
+                <circle class="ball" cx="455" cy="293" r="20" fill="#cf9f7c"/><path d="M442 279 Q468 283 466 309 M438 300 Q451 287 474 291" stroke="#efcaa9" stroke-width="4" fill="none"/>
+                <path d="M146 112 L151 103 L156 112 L151 120Z M457 143 L462 134 L467 143 L462 151Z" fill="#b5bd94"/>
+              </svg>
+              <button id="pet-touch" class="pet-touch" disabled aria-label="Acariciar a tu mascota">
+                <svg id="pet-art" class="pet-art" viewBox="0 0 260 270" role="img" aria-label="Lumis, una mascota suave con grandes orejas">
+                  <defs><linearGradient id="fur-gradient" x1="0" y1="0" x2="0.75" y2="1"><stop class="fur-light" stop-color="#ffe0bc"/><stop class="fur-dark" offset="1" stop-color="#ecb58e"/></linearGradient></defs>
+                  <ellipse cx="132" cy="246" rx="70" ry="11" fill="#b7a386" opacity=".25"/>
+                  <g class="pet-body">
+                    <path class="tail" d="M204 220 C253 231 254 167 227 178 C213 182 233 199 215 209Z" fill="url(#fur-gradient)" stroke="#d6a987" stroke-width="2"/>
+                    <ellipse cx="94" cy="228" rx="27" ry="16" fill="url(#fur-gradient)"/><ellipse cx="164" cy="228" rx="27" ry="16" fill="url(#fur-gradient)"/>
+                    <path class="ear left-ear" d="M62 117 C31 74 40 14 66 25 C86 34 100 84 93 113Z" fill="url(#fur-gradient)"/>
+                    <path class="ear right-ear" d="M166 106 C167 74 181 16 204 28 C227 43 208 95 195 122Z" fill="url(#fur-gradient)"/>
+                    <path d="M62 94 Q44 39 65 40 Q84 56 82 98 M183 98 Q188 41 202 42 Q214 62 194 104" fill="#dd9b90" opacity=".65"/>
+                    <path d="M64 112 C54 116 42 151 47 190 C49 230 82 243 131 242 C184 243 213 224 214 185 C215 142 197 111 172 104 C134 86 98 92 64 112Z" fill="url(#fur-gradient)"/>
+                    <ellipse cx="131" cy="208" rx="45" ry="29" fill="#fff0d7" opacity=".55"/>
+                    <g class="face">
+                      <g class="eyes-open"><ellipse cx="93" cy="154" rx="8" ry="11" fill="#514339"/><ellipse cx="167" cy="154" rx="8" ry="11" fill="#514339"/><circle cx="96" cy="150" r="2.6" fill="#fff"/><circle cx="170" cy="150" r="2.6" fill="#fff"/></g>
+                      <g class="eyes-closed" stroke="#514339" stroke-width="4" stroke-linecap="round" fill="none"><path d="M84 155 Q92 162 101 155 M158 155 Q167 162 175 155"/></g>
+                      <ellipse cx="75" cy="174" rx="14" ry="8" fill="#db9187" opacity=".45"/><ellipse cx="185" cy="174" rx="14" ry="8" fill="#db9187" opacity=".45"/>
+                      <path d="M124 167 Q130 161 137 167 L131 173Z" fill="#a47669"/><path d="M131 173 V177 Q124 183 119 176 M131 177 Q139 182 143 176" stroke="#785a4e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    </g>
+                    <path class="paw left-paw" d="M63 192 Q85 178 90 205 Q83 217 69 209" fill="url(#fur-gradient)" stroke="#d2a17f" stroke-width="1.5"/>
+                    <path class="paw right-paw" d="M196 192 Q175 178 171 205 Q180 217 192 209" fill="url(#fur-gradient)" stroke="#d2a17f" stroke-width="1.5"/>
+                    <path class="advanced-star" d="M131 108 L135 117 L145 119 L137 126 L138 136 L131 132 L123 136 L125 126 L117 119 L127 117Z" fill="#fff7c6"/>
+                  </g>
+                </svg>
+              </button>
+              <span class="reaction-heart" aria-hidden="true">♥</span><span class="reaction-food" aria-hidden="true">✦</span>
+            </div>
+            <div class="habitat-footer"><span class="mood-dot"></span><span id="pet-mood">Un pequeño Lumis busca a su persona.</span><span class="tiny-star" aria-hidden="true">✧</span></div>
+          </section>
+          <aside id="adoption-panel" class="adoption-panel">
+            <span class="eyebrow">CONOCE A TU LUMIS</span><h2>Pequeño, curioso.<br>Y único, como tú.</h2>
+            <p>Un compañero que crece con el tiempo y guarda los momentos que compartís. Sin prisas. Sin tener que pagar para avanzar.</p>
+            <div class="adoption-note"><span aria-hidden="true">✦</span><p>Su personalidad será una sorpresa.<br>Vuestra historia la hará brillar.</p></div>
+            <form id="adopt-form"><label for="pet-name">¿Cómo se llamará?</label><input id="pet-name" name="name" autocomplete="off" maxlength="48" placeholder="Por ejemplo, Mochi" required aria-describedby="name-help"><span id="name-help" class="input-help">Entre 1 y 24 caracteres. Tú eliges.</span><button class="primary-button" type="submit">Empezar nuestra historia <svg class="arrow-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 18 18 6 M6 6h12v12"/></svg></button></form>
+            <p class="trial-note">Sesión de prueba: se guarda en este navegador. No necesitas una cuenta.</p>
+          </aside>
+          <aside id="pet-panel" class="pet-panel" hidden>
+            <div class="panel-heading"><span class="eyebrow">ASÍ SE SIENTE HOY</span><span class="panel-icon" aria-hidden="true">♡</span></div>
+            <h2 id="status-title">Pequeños cuidados,<br>grandes momentos.</h2>
+            <div class="meters">
+              <div class="meter" data-meter="hunger"><div><span>◒ &nbsp; Saciedad</span><strong></strong></div><progress max="100" value="0" aria-label="Saciedad"></progress></div>
+              <div class="meter" data-meter="energy"><div><span>ϟ &nbsp; Energía</span><strong></strong></div><progress max="100" value="0" aria-label="Energía"></progress></div>
+              <div class="meter" data-meter="mood"><div><span>☀ &nbsp; Alegría</span><strong></strong></div><progress max="100" value="0" aria-label="Alegría"></progress></div>
+              <div class="meter" data-meter="trust"><div><span>♡ &nbsp; Confianza</span><strong></strong></div><progress max="100" value="0" aria-label="Confianza"></progress></div>
+            </div>
+            <div class="personality-card"><span aria-hidden="true">✧</span><div><strong id="personality-label"></strong><p id="personality-description"></p></div></div>
+            <div class="growth-card"><div><span>CRECIENDO A SU RITMO</span><strong id="age-label"></strong></div><p id="growth-description"></p></div>
+          </aside>
+        </div>
+        <section id="care-section" class="care-section" hidden aria-label="Cuidados de tu mascota"><div class="section-label"><h2>Un ratito juntos</h2><p>No hay prisa. Cada gesto cuenta.</p></div><div class="care-buttons"><button class="care-button" data-action="feed"><span class="care-icon food-icon" aria-hidden="true">◒</span><span><strong>Alimentar</strong><small>Una rica merienda</small></span><svg class="care-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 18 18 6 M6 6h12v12"/></svg></button><button class="care-button" data-action="pet"><span class="care-icon pet-icon" aria-hidden="true">♡</span><span><strong>Acariciar</strong><small>Un poquito de amor</small></span><svg class="care-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 18 18 6 M6 6h12v12"/></svg></button><button class="care-button" data-action="play"><span class="care-icon play-icon" aria-hidden="true">✦</span><span><strong>Jugar</strong><small>Descubrir su alegría</small></span><svg class="care-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 18 18 6 M6 6h12v12"/></svg></button></div></section>
+        <section id="story-section" class="story-section" hidden><div class="section-label"><h2>Vuestra pequeña historia <span id="story-count"></span></h2><button id="history-toggle" class="text-button" aria-expanded="false">Ver más recuerdos <span aria-hidden="true">→</span></button></div><ul id="history" class="history"></ul><p id="inventory" class="inventory" hidden></p></section>
+      </div>
+      <p id="notice" class="notice" role="status" aria-live="polite"></p>
+    </main>
+    <footer><span>Crecer lleva tiempo. Querer, solo un instante.</span><span>PetVerse · MVP 0.1</span></footer>
+  </div>
+  <dialog id="settings"><form method="dialog"><button class="dialog-close icon-button" aria-label="Cerrar ajustes">×</button></form><span class="eyebrow">TU PEQUEÑO MUNDO</span><h2>A tu ritmo, siempre.</h2><p>La mascota se guarda automáticamente en el servidor. Esta sesión de prueba se reconoce mediante una cookie de este navegador: no se puede trasladar a otro dispositivo y caduca tras 30 días. Las cuentas permanentes llegarán en otra iteración.</p><label class="consent"><input type="checkbox" id="analytics-consent"><span>Permitir métricas de uso opcionales<small>Registramos cuidados con un identificador de sesión, sin nombre de mascota ni servicios externos. Puedes desactivarlas y borrar esas métricas.</small></span></label><p>Sin pagos, sin ventajas compradas. Su edad depende del reloj del servidor, aunque cierres el juego.</p><div id="lab-entry-section" class="lab-entry-section" hidden><h3>Construye y prueba hoy</h3><p>Prueba etapas y acontecimientos con una mascota aparte y un reloj que controlas. No necesitas esperar días reales.</p><button id="lab-entry" class="primary-button">Abrir laboratorio de desarrollo</button></div><button id="install-button" class="primary-button" hidden>Instalar en mi dispositivo</button><p class="trial-note">En iPhone: Safari → Compartir → Añadir a pantalla de inicio. Se necesita HTTPS y conexión para cuidar a tu mascota.</p></dialog>
+</body>
+</html>

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: petverse-prueba
+    runtime: docker
+    plan: free
+    region: oregon
+    autoDeployTrigger: off
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: petverse-prueba-db
+          property: connectionString
+      - key: PETVERSE_TRIAL_MODE
+        value: render-free
+      - key: PETVERSE_DEVELOPER_TOOLS
+        value: 'true'
+databases:
+  - name: petverse-prueba-db
+    plan: free
+    region: oregon
+    ipAllowList: []
