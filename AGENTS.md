@@ -9,4 +9,5 @@
 - No versionar SQLite, cookies, secretos, métricas de usuarios ni capturas de sesiones reales.
 - Verifica con `npm run check` y `npm test`. Para cambios de interacción, usa `npm run test:browser` si Playwright/Chromium están disponibles; informa limitaciones.
 - Actualiza progreso real y decisiones. No afirmar despliegue, resultados de retención o pruebas que no se hicieron.
+- Para activar una prueba, el Blueprint predeterminado usa Free + PostgreSQL Free (30 días), sin disco de pago. No volver a convertir el enlace de prueba en uno de pago sin una decisión explícita del propietario. La opción de pago está separada en `render-persistent.yaml`.
 - Próxima prioridad: hosting duradero, cuenta permanente y validación con usuarios. Render es opcional, no está desplegado por este PR.

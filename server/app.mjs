@@ -25,20 +25,21 @@ async function body(req) {
   return value;
 }
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
-export function createApp({ store, clock = Date.now, publicOrigin, production = false }) {
+export function createApp({ store, clock = Date.now, publicOrigin, production = false, freeTrial = false }) {
   if (production && (!publicOrigin || !publicOrigin.startsWith('https://'))) throw new Error('Producción requiere PUBLIC_ORIGIN con HTTPS.');
   if (publicOrigin && new URL(publicOrigin).origin !== publicOrigin) throw new Error('PUBLIC_ORIGIN debe ser solo un origen, sin ruta ni barra final.');
   const sessionLimits = new Map();
+  const trialNotice = freeTrial ? 'Prueba gratuita en Render: la base de datos caduca 30 días después de su creación. El servidor puede tardar en despertar. No es almacenamiento permanente.' : null;
   const response = (res, status, data, headers = {}) => {
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
     res.end(JSON.stringify(data));
   };
-  function snapshot(session, now) {
-    const pet = store.pet(session.userId);
+  async function snapshot(session, now) {
+    const pet = await store.pet(session.userId);
     if (!pet) return { pet: null, events: [], serverNow: now };
     const tick = reconcile(pet, now);
-    store.savePet(session.userId, pet); store.addEvents(session.userId, tick.events);
-    return { pet: publicPet(pet, tick.now), events: store.events(session.userId), serverNow: tick.now };
+    await store.savePet(session.userId, pet); await store.addEvents(session.userId, tick.events);
+    return { pet: publicPet(pet, tick.now), events: await store.events(session.userId), serverNow: tick.now };
   }
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -50,7 +51,7 @@ export function createApp({ store, clock = Date.now, publicOrigin, production = 
       const url = new URL(req.url, 'http://localhost');
       const now = clock();
       if (url.pathname === '/health' && req.method === 'GET') {
-        store.db.prepare('SELECT 1').get(); return response(res, 200, { ok: true });
+        await store.health(); return response(res, 200, { ok: true });
       }
       if (!url.pathname.startsWith('/api/')) {
         if (!['GET', 'HEAD'].includes(req.method)) throw new GameError('Método no permitido.', 405);
@@ -67,32 +68,32 @@ export function createApp({ store, clock = Date.now, publicOrigin, production = 
         const origin = publicOrigin ?? `http://${req.headers.host}`;
         if (req.headers.origin !== origin || req.headers['sec-fetch-site'] === 'cross-site') throw new GameError('Origen de petición no permitido.', 403, 'origin');
       }
-      let session = store.session(cookie(req), now);
+      let session = await store.session(cookie(req), now);
       if (url.pathname === '/api/session') {
-        if (req.method === 'GET') return response(res, 200, session ? { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics) } : { authenticated: false });
+        if (req.method === 'GET') return response(res, 200, session ? { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics), trialNotice } : { authenticated: false, trialNotice });
         await body(req);
-        if (session) return response(res, 200, { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics) });
+        if (session) return response(res, 200, { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics), trialNotice });
         const address = req.socket.remoteAddress ?? 'unknown';
         const window = Math.floor(now / 3_600_000);
         for (const [key, value] of sessionLimits) if (value.window !== window) sessionLimits.delete(key);
         const entry = sessionLimits.get(address) ?? { window, count: 0 };
         if (entry.count >= 20 || sessionLimits.size > 10_000) throw new GameError('Demasiadas sesiones de prueba. Inténtalo más tarde.', 429);
         entry.count++; sessionLimits.set(address, entry);
-        const created = store.createSession(now);
-        return response(res, 201, { authenticated: true, csrf: created.csrf, analytics: false }, {
+        const created = await store.createSession(now);
+        return response(res, 201, { authenticated: true, csrf: created.csrf, analytics: false, trialNotice }, {
           'Set-Cookie': `pv_session=${created.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${production ? '; Secure' : ''}`
         });
       }
       if (!session) throw new GameError('Inicia una sesión de prueba para continuar.', 401, 'session_required');
       if (url.pathname === '/api/state' && req.method === 'GET') {
-        return response(res, 200, store.transaction(() => snapshot(session, now)));
+        return response(res, 200, await store.transaction(() => snapshot(session, now), session.userId));
       }
       if (req.method !== 'POST') throw new GameError('No encontrado.', 404);
       if (!equal(req.headers['x-csrf-token'], session.csrf)) throw new GameError('La sesión debe actualizarse. Recarga la página.', 403, 'csrf');
       const data = await body(req);
       if (url.pathname === '/api/preferences') {
         if (typeof data.analytics !== 'boolean') throw new GameError('Preferencia no válida.');
-        store.transaction(() => store.analytics(session.userId, data.analytics));
+        await store.transaction(() => store.analytics(session.userId, data.analytics), session.userId);
         return response(res, 200, { analytics: data.analytics });
       }
       if (!['/api/adopt', '/api/actions'].includes(url.pathname)) throw new GameError('No encontrado.', 404);
@@ -103,29 +104,29 @@ export function createApp({ store, clock = Date.now, publicOrigin, production = 
       if (Object.keys(data).some(k => k !== field)) throw new GameError('La petición contiene campos no permitidos.');
       if (field === 'name') data.name = validateName(data.name);
       const fingerprint = hash(JSON.stringify({ path: url.pathname, ...data }));
-      const result = store.transaction(() => {
-        const prior = store.request(session.userId, key);
+      const result = await store.transaction(async () => {
+        const prior = await store.request(session.userId, key);
         if (prior) {
           if (prior.fingerprint !== fingerprint) throw new GameError('Ese identificador ya pertenece a otra petición.', 409, 'idempotency_conflict');
           return { ...JSON.parse(prior.response), replayed: true };
         }
         if (url.pathname === '/api/adopt') {
-          if (store.pet(session.userId)) throw new GameError('Ya tienes una mascota. Cuídala para continuar vuestra historia.', 409, 'already_adopted');
+          if (await store.pet(session.userId)) throw new GameError('Ya tienes una mascota. Cuídala para continuar vuestra historia.', 409, 'already_adopted');
           const pet = adopt(data.name, now);
-          store.savePet(session.userId, pet); store.addEvents(session.userId, [welcomeEvent(pet)]);
-          store.track(session, 'adopt', now);
-          const output = { ...snapshot(session, now), reaction: 'adopt', message: `${pet.name} ya está en casa.` };
-          store.saveRequest(session.userId, key, fingerprint, output, now); return output;
+          await store.savePet(session.userId, pet); await store.addEvents(session.userId, [welcomeEvent(pet)]);
+          await store.track(session, 'adopt', now);
+          const output = { ...await snapshot(session, now), reaction: 'adopt', message: `${pet.name} ya está en casa.` };
+          await store.saveRequest(session.userId, key, fingerprint, output, now); return output;
         }
-        const pet = store.pet(session.userId);
+        const pet = await store.pet(session.userId);
         if (!pet) throw new GameError('Primero adopta una mascota.', 409);
         const tick = reconcile(pet, now);
         const action = interact(pet, data.action, tick.now);
-        store.savePet(session.userId, pet); store.addEvents(session.userId, [...tick.events, action.event]);
-        store.track(session, data.action, tick.now);
-        const output = { pet: publicPet(pet, tick.now), events: store.events(session.userId), serverNow: tick.now, reaction: action.reaction, message: action.message };
-        store.saveRequest(session.userId, key, fingerprint, output, now); return output;
-      });
+        await store.savePet(session.userId, pet); await store.addEvents(session.userId, [...tick.events, action.event]);
+        await store.track(session, data.action, tick.now);
+        const output = { pet: publicPet(pet, tick.now), events: await store.events(session.userId), serverNow: tick.now, reaction: action.reaction, message: action.message };
+        await store.saveRequest(session.userId, key, fingerprint, output, now); return output;
+      }, session.userId);
       return response(res, 200, result);
     } catch (error) {
       const status = error instanceof GameError ? error.status : 500;

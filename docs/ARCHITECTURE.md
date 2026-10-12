@@ -6,14 +6,14 @@ Se inspeccionaron todos los archivos rastreados de `main`: `README.md` (título)
 
 ## Stack y estructura mínima
 
-PWA HTML/CSS/JavaScript sin framework; servidor Node.js 24 LTS; SQLite con WAL mediante `node:sqlite`. Sin paquetes de producción ni compilación. Facilita validar en móviles sin tiendas. Una app nativa o 3D se reconsiderará si lo justifica el uso real. El SVG 2D provisional reduce coste y peso.
+PWA HTML/CSS/JavaScript sin framework; servidor Node.js 24 LTS. SQLite con WAL mediante `node:sqlite` para local/volumen duradero; PostgreSQL mediante `pg` cuando existe `DATABASE_URL`. No hay compilación. La prueba gratuita usa PostgreSQL Free para evitar perder datos al reiniciar el servidor Free sin disco. Facilita validar en móviles sin tiendas. El SVG 2D provisional reduce coste y peso.
 
 ```mermaid
 flowchart LR
   M[Navegador móvil / PWA] -->|JSON + cookie + CSRF| H[Servidor HTTP]
   H --> D[Dominio: tiempo, cuidados y eventos]
   H --> S[Store: transacciones e idempotencia]
-  S --> B[(SQLite persistente)]
+  S --> B[(SQLite o PostgreSQL)]
 ```
 
 | Ruta | Responsabilidad |
@@ -21,9 +21,10 @@ flowchart LR
 | `public/` | Interfaz móvil, SVG, tarjeta PNG y shell PWA |
 | `server/domain.mjs` | Reglas puras, etapas, personalidad y azar reproducible |
 | `server/store.mjs` | Esquema v1, SQLite y transacciones |
+| `server/postgres-store.mjs` | PostgreSQL, pool y bloqueo por propietario |
 | `server/app.mjs` | HTTP, validación, autenticación y estáticos |
 | `server/index.mjs` | Configuración y ciclo de vida |
-| `test/` | Dominio e integración HTTP sobre SQLite real |
+| `test/` | Dominio, HTTP y contratos contra SQLite/PostgreSQL reales |
 | `scripts/` | Sintaxis e informe de métricas consentidas |
 | `docs/` | Producto, reglas, decisiones y progreso |
 
@@ -31,11 +32,13 @@ flowchart LR
 
 Tablas: `users` (UUID, creación, consentimiento), `sessions` (hash del token, CSRF, caducidad), `pets` (una por usuario, JSON de dominio), `events` (historial persistente; interfaz muestra hasta 40), `requests` (clave única y respuesta de comando), `metrics` (eventos opcionales sin nombres ni terceros).
 
-`GET /api/session` consulta sesión; `POST /api/session` crea prueba; `GET /api/state` reconcilia y devuelve `serverNow`; `POST /api/adopt` recibe `{name}`; `POST /api/actions` recibe `{action}`; ambas mutaciones requieren `Idempotency-Key`. `POST /api/preferences` controla consentimiento. `GET /health` consulta SQLite. No se permite elegir propietario, fechas, edad, recompensas o rasgos.
+`GET /api/session` consulta sesión y aviso de límites Free si corresponde; `POST /api/session` crea prueba; `GET /api/state` reconcilia y devuelve `serverNow`; `POST /api/adopt` recibe `{name}`; `POST /api/actions` recibe `{action}`; ambas mutaciones requieren `Idempotency-Key`. `POST /api/preferences` controla consentimiento. `GET /health` consulta la base seleccionada. No se permite elegir propietario, fechas, edad, recompensas o rasgos.
 
 ## Tiempo y consistencia
 
-Nacimiento y acciones toman hora del servidor, nunca del teléfono. Se requiere host con hora sincronizada; `lastObservedAt` evita rejuvenecer si retrocede el reloj. Reconciliación al abrir/cuidar, sin cron por mascota. Cuidados, eventos, inventario e idempotencia se guardan en `BEGIN IMMEDIATE`. Una clave repetida devuelve la respuesta original, sin duplicar; cambiar el comando de esa clave da conflicto. El cliente conserva la clave en `sessionStorage` cuando se pierde la respuesta y refresca estado después de un replay.
+Nacimiento y acciones toman hora del servidor, nunca del teléfono. Se requiere host con hora sincronizada; `lastObservedAt` evita rejuvenecer si retrocede el reloj. Reconciliación al abrir/cuidar, sin cron por mascota. Cuidados, eventos, inventario e idempotencia se guardan en una transacción. SQLite serializa callbacks asíncronos y usa `BEGIN IMMEDIATE`; PostgreSQL usa `BEGIN` y `SELECT ... FOR UPDATE` sobre el propietario, incluso entre procesos. Una clave repetida devuelve la respuesta original sin duplicar. El cliente conserva la clave en `sessionStorage` ante pérdida de respuesta.
+
+Los métodos del almacenamiento admiten `await`; el dominio sigue siendo puro. El pool PostgreSQL limita conexiones a cinco por proceso. La revocación de métricas relee consentimiento dentro de la transacción: un comando iniciado antes de revocar no vuelve a insertar métricas. Ambos backends mantienen iguales datos/reglas; no hay migración automática de SQLite a PostgreSQL.
 
 Sorpresas con semilla mascota+ventana de seis horas; consultar más no aumenta oportunidades. Tras ausencia se considera solo la ventana actual, sin cascadas de premios. Evoluciones y objeto único quedan registrados.
 
@@ -47,6 +50,8 @@ El frontal debe gestionar HTTPS, conexiones abusivas y hora sincronizada. Falta 
 
 ## Operación y escalado
 
-Un proceso y un volumen persistente; backups SQLite consistentes y restauración probada. No compartir SQLite entre réplicas ni usar hosting estático. Para numerosas instancias: PostgreSQL, almacenamiento compartido para sesiones/límites y observabilidad. El dominio está separado para permitir esa migración. No se declara capacidad masiva verificada.
+SQLite: un proceso y volumen duradero, con backups consistentes; no compartir el archivo entre réplicas. PostgreSQL: persistencia fuera del servidor web; preparar exportaciones y restauración, y gestionar migraciones de esquema al crecer. El arranque inicializa tablas v1 sin borrar datos. Para numerosas instancias todavía faltan límites distribuidos, observabilidad y pruebas de carga. No se declara capacidad masiva verificada.
+
+`render.yaml` declara solo servidor y PostgreSQL Free, sin disco de pago. Esa base caduca a los 30 días y el servicio duerme por inactividad. `render-persistent.yaml` conserva la alternativa de pago separada. Ninguna configuración cancela ni migra un servicio previamente creado. No usar SQLite sobre disco efímero para prometer guardado permanente.
 
 El service worker guarda solo el shell. No cachea API ni tokens, ni simula cuidados offline. Al desconectarse pide reconexión y no presenta datos locales como guardados.

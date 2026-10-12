@@ -18,17 +18,26 @@ export function openStore(path) {
     CREATE INDEX IF NOT EXISTS metrics_time ON metrics(at);
     PRAGMA user_version=1;
   `);
+  let transactionQueue = Promise.resolve();
   const store = {
     db,
     close: () => db.close(),
+    health() { db.prepare('SELECT 1').get(); },
     transaction(fn) {
-      db.exec('BEGIN IMMEDIATE');
-      try { const value = fn(); db.exec('COMMIT'); return value; }
-      catch (error) { db.exec('ROLLBACK'); throw error; }
+      // La API puede esperar un backend remoto. Serializar la conexión SQLite para
+      // no entrelazar transacciones cuando el callback cede el control con await.
+      const execute = async () => {
+        db.exec('BEGIN IMMEDIATE');
+        try { const value = await fn(); db.exec('COMMIT'); return value; }
+        catch (error) { db.exec('ROLLBACK'); throw error; }
+      };
+      const pending = transactionQueue.then(execute);
+      transactionQueue = pending.catch(() => {});
+      return pending;
     },
-    createSession(now) {
+    async createSession(now) {
       const token = randomBytes(32).toString('hex'), csrf = randomBytes(24).toString('hex'), userId = randomUUID();
-      store.transaction(() => {
+      await store.transaction(() => {
         db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
         db.prepare('INSERT INTO users (id,created_at) VALUES (?,?)').run(userId, now);
         db.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(hash(token), userId, csrf, now + 30 * 86_400_000);
@@ -60,7 +69,12 @@ export function openStore(path) {
       if (!enabled) db.prepare('DELETE FROM metrics WHERE user_id=?').run(userId);
     },
     track(session, kind, now) {
-      if (session.analytics) db.prepare('INSERT INTO metrics VALUES (?,?,?)').run(session.userId, kind, now);
+      // Releer consentimiento dentro de la transacción: una petición iniciada
+      // antes de revocarlo no debe volver a registrar métricas después.
+      db.prepare('INSERT INTO metrics SELECT id,?,? FROM users WHERE id=? AND analytics=1').run(kind, now, session.userId);
+    },
+    reportMetrics() {
+      return db.prepare('SELECT kind AS evento, COUNT(*) AS total, COUNT(DISTINCT user_id) AS sesiones FROM metrics GROUP BY kind').all();
     }
   };
   return store;

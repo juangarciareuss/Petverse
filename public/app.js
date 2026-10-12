@@ -116,6 +116,7 @@ async function bootstrap() {
     let session = await endpoint('session');
     if (!session.authenticated) session = await endpoint('session', {});
     csrf = session.csrf; analytics = session.analytics;
+    $('#trial-notice').textContent = session.trialNotice ?? ''; $('#trial-notice').hidden = !session.trialNotice;
     $('#analytics-consent').checked = analytics;
     state = await endpoint('state'); render();
   } catch (error) {

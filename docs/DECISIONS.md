@@ -6,7 +6,7 @@ Validación móvil rápida sin tiendas. SVG original provisional, sin recursos e
 
 ## Servidor autoritativo y SQLite
 
-Edad y persistencia en servidor. Node 24 aporta SQLite sin dependencias; basta un proceso con disco duradero en esta iteración. PostgreSQL será necesario para múltiples instancias. No se promete escala internacional ya verificada.
+Edad y persistencia en servidor. Node 24 aporta SQLite para ejecución local con disco duradero. El adaptador PostgreSQL permite probar sin disco de pago y prepara la persistencia para varios procesos; aún faltan límites distribuidos, observabilidad y carga. No se promete escala internacional ya verificada.
 
 ## Sesiones de prueba
 
@@ -26,4 +26,10 @@ Rama de trabajo, documentos y PR; conservar archivo previo. Blueprint de Render 
 
 ## Prueba desde el teléfono — publicación preparada
 
-El propietario pidió jugar y confirmó que todavía no tiene servicio en Render. Se preparó un enlace oficial de Deploy to Render apuntando a la rama jugable. El servidor usa la URL HTTPS que Render proporciona, sin aceptar un origen enviado por el cliente. El Blueprint emplea el identificador actual `0.5c-512mb`, disco duradero y despliegues automáticos desactivados. El propietario revisa y aprueba recursos/coste en Render; no se contrató ni publicó ningún servicio desde esta sesión, que no dispone de conexión de Render. No sustituir el servidor por una demo local que afirme conservar datos online.
+El servidor usa la URL HTTPS de Render, sin aceptar un origen enviado por el cliente. El enlace apunta a la rama jugable sin merge obligatorio y mantiene despliegues manuales. Inicialmente se preparó SQLite con un plan/disco de pago; esa opción ya no es el despliegue predeterminado y queda en `render-persistent.yaml`. No se contrató ni publicó un servicio desde esta sesión sin conexión de Render.
+
+## Prueba sin servidor ni disco de pago
+
+Tras la objeción del propietario al coste, `render.yaml` pasa a servidor Free y PostgreSQL Free, sin disco. Se añade un adaptador `pg` y llamadas de almacenamiento asíncronas conservando SQLite y las reglas existentes. PostgreSQL hace persistir mascota, cookie e idempotencia entre reinicios del servidor Free. Bloqueos por propietario impiden pérdidas concurrentes; transacciones evitan recompensas duplicadas. La prueba no promete alojamiento perpetuo: la base Free vence 30 días después de crearla y el servidor tiene arranque en frío; se muestran límites en el juego y README. No se migra ni elimina la mascota de un servicio anterior automáticamente. Los cambios tampoco cancelan recursos/facturación previamente creados por el propietario.
+
+La corrección se publica en `feat/free-render-trial`, con un enlace de despliegue nuevo. No se modifica la rama del enlace anterior: así una posible instancia de Blueprint ya creada no recibe cambios de infraestructura automáticamente. El nuevo PR sustituye la propuesta inicial de pago como entrega recomendada.

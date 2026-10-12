@@ -3,7 +3,7 @@
 | Fase | Estado |
 | --- | --- |
 | 1. Auditoría y arquitectura | Repo inspeccionado, stack y operación documentados |
-| 2. Mascota funcional | Sesión de prueba, adopción, nombre, cuidados y SQLite implementados |
+| 2. Mascota funcional | Sesión, adopción, nombre y cuidados con SQLite/PostgreSQL implementados |
 | 3. Tiempo real | Siete umbrales y reconciliación implementados; validar semanas en servidor real |
 | 4. Personalidad y sorpresas | Cuatro rasgos funcionales, ventanas y recuerdos; ampliar variedad tras validar |
 | 5. Experiencias temporales | Pendiente: elegibilidad, oportunidades pasadas y recuperación simulada única |
@@ -12,7 +12,7 @@
 
 ## Siguientes prioridades
 
-1. Hosting HTTPS, disco duradero, backups y restauración comprobada.
+1. Activar la prueba Free con PostgreSQL (30 días), verificar hosting HTTPS y acordar alojamiento permanente/exportaciones antes del vencimiento.
 2. Cuenta permanente, recuperación segura y eliminación/exportación de datos.
 3. Validar satisfacción y regreso con consentimiento; no añadir pagos aún.
 4. Afinar personalidad, memoria narrativa y diferencias visuales de crecimiento.

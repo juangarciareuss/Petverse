@@ -1,0 +1,13 @@
+# Alternativa de pago: usar solo si el propietario decide contratarla.
+# No se aplica al enlace de prueba gratuita ni migra mascotas automáticamente.
+services:
+  - type: web
+    name: petverse
+    runtime: docker
+    plan: 0.5c-512mb
+    autoDeployTrigger: off
+    healthCheckPath: /health
+    disk:
+      name: petverse-data
+      mountPath: /data
+      sizeGB: 1

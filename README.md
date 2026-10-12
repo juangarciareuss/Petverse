@@ -6,44 +6,48 @@ Capturas de QA: [vista móvil](docs/images/mvp-mobile.png) · [vista de escritor
 
 ## Ejecutar
 
-Requisito: **Node.js 24 LTS**. Sin dependencias de npm ni compilación.
+Requisito: **Node.js 24 LTS**. Sin compilación; `pg` aporta PostgreSQL cuando se usa la prueba gratuita de Render. En local se conserva SQLite.
 
 ```bash
 git clone https://github.com/juangarciareuss/Petverse.git
 cd Petverse
-git checkout feat/playable-petverse-mvp
+git checkout feat/free-render-trial
+npm ci
 npm start
 ```
 
 Abre `http://localhost:3000`. Adopta, realiza los tres cuidados, recarga y comprueba persistencia. El mismo cuidado espera 15 segundos antes de repetirse. Etapas por días reales; no hace falta mantener abierta la aplicación. Sorpresas por ventanas de seis horas, no garantizadas en cada visita.
 
-SQLite se crea en `data/petverse.sqlite`: no borres el directorio ni uses disco efímero. La sesión de prueba depende de la cookie de este navegador y caduca en 30 días, sin recuperación o traslado a otro dispositivo todavía.
+Sin `DATABASE_URL`, SQLite se crea en `data/petverse.sqlite`: no borres el directorio ni uses disco efímero. Con `DATABASE_URL`, el estado se guarda en PostgreSQL y sobrevive a los reinicios del servidor. Los datos existentes de SQLite no se migran automáticamente. La sesión de prueba depende de la cookie de este navegador y caduca en 30 días, sin recuperación o traslado a otro dispositivo todavía.
 
 ## Probar desde un celular
 
 - En la misma Wi-Fi que tu ordenador: abre `http://IP-LOCAL-DEL-ORDENADOR:3000`, con el cortafuegos permitiendo el puerto. El servidor escucha en `0.0.0.0`. Permite jugar; instalar PWA y compartir con APIs nativas requieren HTTPS. La IP de este entorno remoto no es accesible desde el teléfono.
-- Desde cualquier lugar: despliega con HTTPS y disco persistente según las instrucciones siguientes. Abre la URL pública en Safari/Chrome y usa el mismo navegador para recuperar tu sesión.
+- Desde cualquier lugar: activa la prueba gratuita con HTTPS y PostgreSQL según las instrucciones siguientes. Abre la URL pública en Safari/Chrome y usa el mismo navegador para recuperar tu sesión.
 - iPhone: Compartir → Añadir a pantalla de inicio. Android: menú → Instalar aplicación, cuando esté disponible. Offline se muestra el shell; los cuidados y el estado requieren red.
 
-## Despliegue opcional en Render
+## Prueba gratuita en Render — 30 días
 
-`render.yaml` configura un Blueprint Docker con disco `/data` y health check `/health`. No se ha contratado ni desplegado. El plan con disco puede tener coste; revisa precios antes de crear recursos.
+`render.yaml` ahora configura **un servidor Free y una base PostgreSQL Free, sin disco de pago**. La alternativa anterior con disco se conserva separada en `render-persistent.yaml`, exclusivamente para quien decida contratarla. No se ha publicado ni contratado ningún servicio desde esta sesión.
 
-[**Preparar la prueba en Render**](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fjuangarciareuss%2FPetverse%2Ftree%2Ffeat%2Fplayable-petverse-mvp)
+[**Activar la prueba gratuita de PetVerse**](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fjuangarciareuss%2FPetverse%2Ftree%2Ffeat%2Ffree-render-trial)
 
-El enlace selecciona la rama jugable, sin necesidad de mergear el PR. Render pedirá iniciar sesión y revisar/aprobar los recursos y su coste; esta tarea no ha creado ningún servicio de pago. Usa la URL que Render muestre cuando el servicio esté `Live` para jugar desde el teléfono.
+El enlace usa la nueva rama `feat/free-render-trial`; no es necesario mergear el PR. Antes de crear, la pantalla debe mostrar **`petverse-prueba`: Free** y **`petverse-prueba-db`: Free**, sin disco. Si tienes abierta la pantalla del enlace anterior de pago, ciérrala y abre este enlace nuevo para cargar la configuración gratuita.
 
-1. Abre el enlace anterior y revisa el Blueprint. Alternativa: conecta el repositorio y selecciona la rama `feat/playable-petverse-mvp` para crear un Web Service Docker manual.
-2. Mantén una sola instancia y disco persistente en `/data`; Docker usa `DATABASE_PATH=/data/petverse.sqlite`.
-3. En Render el juego detecta automáticamente su URL mediante `RENDER_EXTERNAL_URL`: no hay que rellenar `PUBLIC_ORIGIN`. Para un dominio propio o un hosting distinto, configura `PUBLIC_ORIGIN` con su origen HTTPS exacto, sin barra final.
-4. Despliega y verifica `/health` → `{"ok":true}`. Adopta desde el celular, cuida, recarga y reinicia el servicio: debe conservar mascota e historial.
-5. Prepara copias SQLite consistentes y prueba una restauración antes de invitar usuarios.
+1. Inicia sesión en Render y revisa esos dos recursos Free. Su nivel gratuito no requiere tarjeta. No elijas un plan de pago ni la plantilla alternativa con disco para esta prueba.
+2. Crea/despliega la instancia del Blueprint. `DATABASE_URL` se conecta automáticamente a PostgreSQL; la URL HTTPS se detecta con `RENDER_EXTERNAL_URL`, sin campos manuales de secretos.
+3. Espera a que `petverse-prueba` aparezca `Live` y abre su URL `.onrender.com` desde Safari/Chrome. Adopta y cuida; recargar o reiniciar el servidor no borra la mascota mientras exista la base.
+4. `/health` debe devolver `{"ok":true}`. Guarda/exporta los datos antes del vencimiento de la base si deseas conservar la prueba más tiempo.
 
-Las actualizaciones no se despliegan automáticamente: después de revisar cambios, usa el despliegue manual de Render. El plan gratuito de Render no ofrece el disco persistente de esta configuración; no se promete conservar SQLite en un servicio con disco efímero.
+**Límites reales:** la base Free caduca 30 días después de crearla; no es alojamiento permanente. El servidor Free duerme después de inactividad y puede tardar en despertar. Render solo permite una base Free por cuenta/workspace. La interfaz muestra este aviso. No se activa una actualización de pago automáticamente desde el juego.
 
-Referencias: [botón y selección de rama](https://render.com/docs/deploy-to-render), [URL automática](https://render.com/docs/environment-variables), [planes](https://render.com/docs/compute-plans).
+El uso gratuito tiene cuotas de ancho de banda y compilación; con un método de pago añadido Render puede facturar excesos. Este proyecto no añade tarjetas, contrata planes ni cancela servicios de pago existentes. Si ya creaste el servicio anterior, revisa su facturación por separado y conserva/exporta cualquier mascota antes de eliminar sus datos. Crear la nueva prueba gratuita no cancela aquel servicio.
 
-Alternativa: Docker con proxy HTTPS, volumen persistente y `PUBLIC_ORIGIN`. GitHub Pages no ejecuta este backend. No hay pagos ni proveedor de cuentas.
+Las actualizaciones quedan en modo manual. Referencias oficiales: [despliegue por rama](https://render.com/docs/deploy-to-render), [URL automática](https://render.com/docs/environment-variables), [límites Free](https://render.com/docs/free), [facturación incluso con Free](https://render.com/docs/faq).
+
+## Alojamiento permanente — opcional y separado
+
+`render-persistent.yaml` mantiene la opción SQLite con un servidor y disco de pago, sin aplicarla al botón de prueba. También puedes alojar Docker con HTTPS y volumen duradero, o PostgreSQL propio, usando `PUBLIC_ORIGIN`. GitHub Pages no ejecuta este backend. No se migran datos ni se eliminan servicios existentes automáticamente.
 
 ## Variables
 
@@ -52,6 +56,8 @@ Alternativa: Docker con proxy HTTPS, volumen persistente y `PUBLIC_ORIGIN`. GitH
 | `PORT` | `3000` | Puerto HTTP |
 | `HOST` | `0.0.0.0` | Interfaz |
 | `DATABASE_PATH` | `data/petverse.sqlite` | Archivo persistente |
+| `DATABASE_URL` | sin definir | PostgreSQL si existe; tiene prioridad sobre SQLite |
+| `PETVERSE_TRIAL_MODE` | sin definir | `render-free` muestra límites de la prueba |
 | `NODE_ENV` | desarrollo | `production` activa Secure y exige HTTPS |
 | `PUBLIC_ORIGIN` | `RENDER_EXTERNAL_URL` en Render, o HTTP local | URL exacta de producción; fijar para dominio propio |
 
@@ -67,6 +73,8 @@ npm test
 Pruebas de edad, personalidad, inactividad, reloj que retrocede, sorpresa reproducible, objeto único, aislamiento, CSRF, fechas manipuladas, persistencia e idempotencia concurrente. Relojes controlados solo en tests, sin trucos de evolución habilitados en producción.
 
 QA de navegador opcional: `npm run test:browser` requiere Playwright y Chromium disponibles. En un entorno de desarrollo puedes preparar las herramientas con `npm install --no-save --package-lock=false playwright` y `npx playwright install chromium`. Si usas un Chromium de sistema, configura `CHROMIUM_PATH` con su ruta. Las herramientas de QA no son dependencias de producción; el script guarda capturas en `test-results/`, excluido de Git.
+
+Para verificar PostgreSQL real, configura `PETVERSE_TEST_DATABASE_URL` apuntando a una base **de pruebas** y ejecuta `npm test`; la batería usa esquemas aislados `petverse_test_*` y los limpia al acabar. `npm run test:browser` usa también ese backend si está configurado. Sin esa variable, las dos pruebas específicas de PostgreSQL se omiten explícitamente; las de SQLite y dominio siguen ejecutándose.
 
 `npm run metrics` muestra solo cuidados reales consentidos y no calcula retención. Se desactivan y borran en Ajustes.
 

@@ -5,14 +5,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { openStore } from '../server/store.mjs';
+import { openPostgresStore } from '../server/postgres-store.mjs';
 import { createApp } from '../server/app.mjs';
 import { DAY } from '../server/domain.mjs';
 async function fixture(t, path = ':memory:') {
   let now = Date.UTC(2026, 9, 12);
-  const store = openStore(path), server = createApp({ store, clock: () => now });
+  const store = path === ':memory:' && process.env.PETVERSE_TEST_DATABASE_URL
+    ? await openPostgresStore(process.env.PETVERSE_TEST_DATABASE_URL, { schema: `petverse_test_${randomUUID().replaceAll('-', '')}`, createSchema: true, dropSchemaOnClose: true })
+    : openStore(path);
+  const server = createApp({ store, clock: () => now });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  t.after(async () => { await new Promise(resolve => server.close(resolve)); store.close(); });
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await store.close(); });
   const request = async (url, { cookie, csrf, data, key, foreignOrigin } = {}) => {
     const response = await fetch(`${origin}${url}`, {
       method: data === undefined ? 'GET' : 'POST',
@@ -94,12 +98,12 @@ test('reabrir SQLite conserva mascota y credenciales de sesión', async t => {
 test('métricas opcionales: no registrar antes de consentimiento y borrar al revocar', async t => {
   const app = await fixture(t), auth = await app.login();
   await app.request('/api/adopt', mutation(auth, { name: 'Privada' }));
-  assert.equal(app.store.db.prepare('SELECT COUNT(*) AS n FROM metrics').get().n, 0);
+  assert.equal((await app.store.reportMetrics()).reduce((n, row) => n + row.total, 0), 0);
   assert.equal((await app.request('/api/preferences', { ...auth, data: { analytics: true } })).status, 200);
   await app.request('/api/actions', mutation(auth, { action: 'pet' }));
-  assert.equal(app.store.db.prepare('SELECT COUNT(*) AS n FROM metrics').get().n, 1);
+  assert.equal((await app.store.reportMetrics()).reduce((n, row) => n + row.total, 0), 1);
   await app.request('/api/preferences', { ...auth, data: { analytics: false } });
-  assert.equal(app.store.db.prepare('SELECT COUNT(*) AS n FROM metrics').get().n, 0);
+  assert.equal((await app.store.reportMetrics()).reduce((n, row) => n + row.total, 0), 0);
 });
 test('sin adopción vía GET y HTTPS obligatorio para producción', async t => {
   const app = await fixture(t), auth = await app.login();

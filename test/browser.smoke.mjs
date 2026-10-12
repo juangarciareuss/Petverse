@@ -1,21 +1,27 @@
 // QA adicional: requiere Playwright instalado en el entorno, no en producción.
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openStore } from '../server/store.mjs';
+import { openPostgresStore } from '../server/postgres-store.mjs';
 import { createApp } from '../server/app.mjs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const dir = mkdtempSync(join(tmpdir(), 'petverse-browser-'));
 const file = join(dir, 'game.sqlite');
 let store, server;
+const pgSchema = `petverse_test_${randomUUID().replaceAll('-', '')}`;
 async function start(port = 0) {
-  store = openStore(file); server = createApp({ store });
+  store = process.env.PETVERSE_TEST_DATABASE_URL
+    ? await openPostgresStore(process.env.PETVERSE_TEST_DATABASE_URL, { schema: pgSchema, createSchema: true })
+    : openStore(file);
+  server = createApp({ store, freeTrial: Boolean(process.env.PETVERSE_TEST_DATABASE_URL) });
   await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
   return server.address().port;
 }
-async function stop() { await new Promise(resolve => server.close(resolve)); store.close(); }
+async function stop() { await new Promise(resolve => server.close(resolve)); await store.close(); }
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH });
 try {
   const port = await start();
@@ -27,6 +33,7 @@ try {
   page.on('console', message => { if (message.type() === 'error' && !expectedOffline) errors.push(message.text()); });
   await page.goto(origin);
   await page.locator('#adoption-panel').waitFor({ state: 'visible' });
+  if (process.env.PETVERSE_TEST_DATABASE_URL) assert.match(await page.locator('#trial-notice').textContent(), /caduca 30 días/);
   await page.locator('#pet-name').fill('Mochi'); await page.locator('#adopt-form button').click();
   await page.locator('#pet-panel').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#heading').textContent(), 'Hola, Mochi.');
@@ -82,5 +89,9 @@ try {
   await context.close();
   console.log('QA Chromium móvil/desktop: adopción, cuidados, recarga, reloj, privacidad, PNG, reinicio, offline, 320 px y movimiento reducido OK.');
 } finally {
-  await browser.close(); if (server?.listening) await stop(); rmSync(dir, { recursive: true, force: true });
+  await browser.close(); if (server?.listening) await stop();
+  if (process.env.PETVERSE_TEST_DATABASE_URL) {
+    const cleanup = await openPostgresStore(process.env.PETVERSE_TEST_DATABASE_URL, { schema: pgSchema, createSchema: true, dropSchemaOnClose: true }); await cleanup.close();
+  }
+  rmSync(dir, { recursive: true, force: true });
 }
