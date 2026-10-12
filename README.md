@@ -29,11 +29,19 @@ SQLite se crea en `data/petverse.sqlite`: no borres el directorio ni uses disco 
 
 `render.yaml` configura un Blueprint Docker con disco `/data` y health check `/health`. No se ha contratado ni desplegado. El plan con disco puede tener coste; revisa precios antes de crear recursos.
 
-1. Revisa/mergea el PR o selecciona esta rama al conectar el repositorio en Render. Usa el Blueprint o crea un Web Service Docker manual.
+[**Preparar la prueba en Render**](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fjuangarciareuss%2FPetverse%2Ftree%2Ffeat%2Fplayable-petverse-mvp)
+
+El enlace selecciona la rama jugable, sin necesidad de mergear el PR. Render pedirá iniciar sesión y revisar/aprobar los recursos y su coste; esta tarea no ha creado ningún servicio de pago. Usa la URL que Render muestre cuando el servicio esté `Live` para jugar desde el teléfono.
+
+1. Abre el enlace anterior y revisa el Blueprint. Alternativa: conecta el repositorio y selecciona la rama `feat/playable-petverse-mvp` para crear un Web Service Docker manual.
 2. Mantén una sola instancia y disco persistente en `/data`; Docker usa `DATABASE_PATH=/data/petverse.sqlite`.
-3. Configura `PUBLIC_ORIGIN` como la URL HTTPS real del servicio, sin barra final. Ejemplo: `https://petverse-TU-SERVICIO.onrender.com`; sustituye por tu dirección, no copies literalmente. Producción necesita esta variable para arrancar.
+3. En Render el juego detecta automáticamente su URL mediante `RENDER_EXTERNAL_URL`: no hay que rellenar `PUBLIC_ORIGIN`. Para un dominio propio o un hosting distinto, configura `PUBLIC_ORIGIN` con su origen HTTPS exacto, sin barra final.
 4. Despliega y verifica `/health` → `{"ok":true}`. Adopta desde el celular, cuida, recarga y reinicia el servicio: debe conservar mascota e historial.
 5. Prepara copias SQLite consistentes y prueba una restauración antes de invitar usuarios.
+
+Las actualizaciones no se despliegan automáticamente: después de revisar cambios, usa el despliegue manual de Render. El plan gratuito de Render no ofrece el disco persistente de esta configuración; no se promete conservar SQLite en un servicio con disco efímero.
+
+Referencias: [botón y selección de rama](https://render.com/docs/deploy-to-render), [URL automática](https://render.com/docs/environment-variables), [planes](https://render.com/docs/compute-plans).
 
 Alternativa: Docker con proxy HTTPS, volumen persistente y `PUBLIC_ORIGIN`. GitHub Pages no ejecuta este backend. No hay pagos ni proveedor de cuentas.
 
@@ -45,7 +53,7 @@ Alternativa: Docker con proxy HTTPS, volumen persistente y `PUBLIC_ORIGIN`. GitH
 | `HOST` | `0.0.0.0` | Interfaz |
 | `DATABASE_PATH` | `data/petverse.sqlite` | Archivo persistente |
 | `NODE_ENV` | desarrollo | `production` activa Secure y exige HTTPS |
-| `PUBLIC_ORIGIN` | origen HTTP local | URL exacta de producción |
+| `PUBLIC_ORIGIN` | `RENDER_EXTERNAL_URL` en Render, o HTTP local | URL exacta de producción; fijar para dominio propio |
 
 `.env.example` documenta variables; no se carga automáticamente. Usa variables del hosting o `node --env-file=.env server/index.mjs` con tu archivo local. No subir secretos ni SQLite.
 

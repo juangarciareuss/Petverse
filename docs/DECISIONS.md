@@ -23,3 +23,7 @@ Métricas desactivadas inicialmente, consentimiento y borrado al revocar; sin te
 ## Entrega mediante PR
 
 Rama de trabajo, documentos y PR; conservar archivo previo. Blueprint de Render opcional con disco persistente, configuración y posibles costes documentados. No contratar ni desplegar hosting desde esta tarea centrada en guardar/revisar el código en GitHub.
+
+## Prueba desde el teléfono — publicación preparada
+
+El propietario pidió jugar y confirmó que todavía no tiene servicio en Render. Se preparó un enlace oficial de Deploy to Render apuntando a la rama jugable. El servidor usa la URL HTTPS que Render proporciona, sin aceptar un origen enviado por el cliente. El Blueprint emplea el identificador actual `0.5c-512mb`, disco duradero y despliegues automáticos desactivados. El propietario revisa y aprueba recursos/coste en Render; no se contrató ni publicó ningún servicio desde esta sesión, que no dispone de conexión de Render. No sustituir el servidor por una demo local que afirme conservar datos online.

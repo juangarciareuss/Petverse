@@ -2,11 +2,9 @@ services:
   - type: web
     name: petverse
     runtime: docker
-    plan: starter
+    plan: 0.5c-512mb
+    autoDeployTrigger: off
     healthCheckPath: /health
-    envVars:
-      - key: PUBLIC_ORIGIN
-        sync: false
     disk:
       name: petverse-data
       mountPath: /data
