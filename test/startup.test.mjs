@@ -9,7 +9,7 @@ import { once } from 'node:events';
 test('arranca en producción con la URL automática de Render y mantiene CSRF/origen', async t => {
   const dir = mkdtempSync(join(tmpdir(), 'petverse-startup-'));
   const origin = 'https://petverse-startup-test.onrender.com';
-  const env = { ...process.env, NODE_ENV: 'production', RENDER_EXTERNAL_URL: origin, DATABASE_PATH: join(dir, 'game.sqlite'), PORT: '0', HOST: '127.0.0.1' };
+  const env = { ...process.env, NODE_ENV: 'production', RENDER_EXTERNAL_URL: origin, DATABASE_PATH: join(dir, 'game.sqlite'), PORT: '0', HOST: '127.0.0.1', PETVERSE_DEVELOPER_TOOLS: 'true' };
   delete env.PUBLIC_ORIGIN;
   const child = spawn(process.execPath, ['server/index.mjs'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
   t.after(async () => {
@@ -35,6 +35,8 @@ test('arranca en producción con la URL automática de Render y mantiene CSRF/or
   const headers = { Origin: origin, 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, 'Idempotency-Key': 'render-startup-test-adopt', Cookie: login.headers.get('set-cookie').split(';')[0] };
   const adopted = await fetch(base + '/api/adopt', { method: 'POST', headers, body: JSON.stringify({ name: 'Luna' }) });
   assert.equal(adopted.status, 200); assert.equal((await adopted.json()).pet.name, 'Luna');
+  const lab = await fetch(base + '/api/lab/start', { method: 'POST', headers: { ...headers, 'Idempotency-Key': 'render-startup-test-lab' }, body: '{}' });
+  assert.equal(lab.status, 200); assert.equal((await lab.json()).mode, 'sandbox');
   const blocked = await fetch(base + '/api/actions', { method: 'POST', headers: { ...headers, Origin: 'https://other.example' }, body: JSON.stringify({ action: 'feed' }) });
   assert.equal(blocked.status, 403);
 });

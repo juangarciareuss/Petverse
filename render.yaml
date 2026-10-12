@@ -13,6 +13,8 @@ services:
           property: connectionString
       - key: PETVERSE_TRIAL_MODE
         value: render-free
+      - key: PETVERSE_DEVELOPER_TOOLS
+        value: 'true'
 databases:
   - name: petverse-prueba-db
     plan: free

@@ -7,16 +7,20 @@ export const hash = value => createHash('sha256').update(value).digest('hex');
 export function openStore(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
+  if (db.prepare('PRAGMA user_version').get().user_version > 2) {
+    db.close(); throw new Error('La base SQLite pertenece a una versión más reciente de PetVerse.');
+  }
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
     CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, analytics INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS pets (user_id TEXT PRIMARY KEY REFERENCES users(id), state TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS sandboxes (user_id TEXT PRIMARY KEY REFERENCES users(id), state TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), kind TEXT NOT NULL, at INTEGER NOT NULL, payload TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS events_user_time ON events(user_id, at DESC);
     CREATE TABLE IF NOT EXISTS requests (user_id TEXT NOT NULL REFERENCES users(id), key TEXT NOT NULL, fingerprint TEXT NOT NULL, response TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(user_id,key));
     CREATE TABLE IF NOT EXISTS metrics (user_id TEXT NOT NULL REFERENCES users(id), kind TEXT NOT NULL, at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS metrics_time ON metrics(at);
-    PRAGMA user_version=1;
+    PRAGMA user_version=2;
   `);
   let transactionQueue = Promise.resolve();
   const store = {
@@ -53,6 +57,13 @@ export function openStore(path) {
       return row ? JSON.parse(row.state) : null;
     },
     savePet(userId, pet) { db.prepare('INSERT INTO pets VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET state=excluded.state').run(userId, JSON.stringify(pet)); },
+    sandbox(userId) {
+      const row = db.prepare('SELECT state FROM sandboxes WHERE user_id=?').get(userId);
+      return row ? JSON.parse(row.state) : null;
+    },
+    saveSandbox(userId, state) {
+      db.prepare('INSERT INTO sandboxes VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET state=excluded.state').run(userId, JSON.stringify(state));
+    },
     addEvents(userId, events) {
       const insert = db.prepare('INSERT OR IGNORE INTO events VALUES (?,?,?,?,?)');
       for (const e of events) insert.run(e.id, userId, e.kind, e.at, JSON.stringify(e));

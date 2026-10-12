@@ -20,6 +20,7 @@ flowchart LR
 | --- | --- |
 | `public/` | Interfaz móvil, SVG, tarjeta PNG y shell PWA |
 | `server/domain.mjs` | Reglas puras, etapas, personalidad y azar reproducible |
+| `server/lab.mjs` | Simulación aislada reutilizando reglas de dominio |
 | `server/store.mjs` | Esquema v1, SQLite y transacciones |
 | `server/postgres-store.mjs` | PostgreSQL, pool y bloqueo por propietario |
 | `server/app.mjs` | HTTP, validación, autenticación y estáticos |
@@ -55,3 +56,7 @@ SQLite: un proceso y volumen duradero, con backups consistentes; no compartir el
 `render.yaml` declara solo servidor y PostgreSQL Free, sin disco de pago. Esa base caduca a los 30 días y el servicio duerme por inactividad. `render-persistent.yaml` conserva la alternativa de pago separada. Ninguna configuración cancela ni migra un servicio previamente creado. No usar SQLite sobre disco efímero para prometer guardado permanente.
 
 El service worker guarda solo el shell. No cachea API ni tokens, ni simula cuidados offline. Al desconectarse pide reconexión y no presenta datos locales como guardados.
+
+## Laboratorio aislado
+
+`sandboxes` almacena por usuario un documento con mascota, historial limitado a 40 y `virtualNow`. Es independiente de `pets`, `events` y `metrics`; las mutaciones conservan el bloqueo por propietario y la idempotencia. Los saltos son comandos predefinidos (incluido siguiente umbral), nunca un timestamp del cliente. El reloj solo cambia por comando; la cookie y sus permisos usan tiempo real. Iniciar reanuda si ya existe, reset sustituye solo la mascota ficticia. No hay permisos de administración de mascotas ajenas. Las tablas se añaden al arranque sin reescribir datos. Habilitación explícita `PETVERSE_DEVELOPER_TOOLS=true`; las rutas devuelven 404 cuando está apagada.

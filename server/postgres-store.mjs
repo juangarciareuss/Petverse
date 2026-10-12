@@ -15,6 +15,7 @@ export async function openPostgresStore(connectionString, { schema = 'public', c
       CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, created_at BIGINT NOT NULL, analytics BOOLEAN NOT NULL DEFAULT FALSE);
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires_at BIGINT NOT NULL);
       CREATE TABLE IF NOT EXISTS pets (user_id TEXT PRIMARY KEY REFERENCES users(id), state TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS sandboxes (user_id TEXT PRIMARY KEY REFERENCES users(id), state TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), kind TEXT NOT NULL, at BIGINT NOT NULL, payload TEXT NOT NULL, sequence BIGSERIAL UNIQUE);
       CREATE INDEX IF NOT EXISTS events_user_time ON events(user_id, at DESC, sequence DESC);
       CREATE TABLE IF NOT EXISTS requests (user_id TEXT NOT NULL REFERENCES users(id), key TEXT NOT NULL, fingerprint TEXT NOT NULL, response TEXT NOT NULL, at BIGINT NOT NULL, PRIMARY KEY(user_id,key));
@@ -66,6 +67,13 @@ export async function openPostgresStore(connectionString, { schema = 'public', c
     },
     async savePet(userId, pet) {
       await query('INSERT INTO pets VALUES ($1,$2) ON CONFLICT(user_id) DO UPDATE SET state=EXCLUDED.state', [userId, JSON.stringify(pet)]);
+    },
+    async sandbox(userId) {
+      const { rows } = await query('SELECT state FROM sandboxes WHERE user_id=$1', [userId]);
+      return rows[0] ? JSON.parse(rows[0].state) : null;
+    },
+    async saveSandbox(userId, state) {
+      await query('INSERT INTO sandboxes VALUES ($1,$2) ON CONFLICT(user_id) DO UPDATE SET state=EXCLUDED.state', [userId, JSON.stringify(state)]);
     },
     async addEvents(userId, events) {
       for (const event of events) await query('INSERT INTO events (id,user_id,kind,at,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT(id) DO NOTHING', [event.id, userId, event.kind, event.at, JSON.stringify(event)]);

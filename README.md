@@ -49,6 +49,12 @@ Las actualizaciones quedan en modo manual. Referencias oficiales: [despliegue po
 
 `render-persistent.yaml` mantiene la opción SQLite con un servidor y disco de pago, sin aplicarla al botón de prueba. También puedes alojar Docker con HTTPS y volumen duradero, o PostgreSQL propio, usando `PUBLIC_ORIGIN`. GitHub Pages no ejecuta este backend. No se migran datos ni se eliminan servicios existentes automáticamente.
 
+## Desarrollar hoy sin esperar el tiempo real
+
+El **laboratorio de desarrollo** crea una mascota de prueba con reloj independiente. Desde Ajustes puedes avanzar un minuto, seis horas, uno/siete días o saltar a la siguiente etapa hasta el día 101, reiniciar y volver a tu mascota real. Cuidados, recuerdos, inventario y métricas de la partida normal quedan separados.
+
+Para tu servicio Render existente, pulsa **Manual sync** en el Blueprint de PetVerse: aplicará el código y `PETVERSE_DEVELOPER_TOOLS=true`. Cuando esté Live, recarga el juego y abre **Ajustes → Abrir laboratorio de desarrollo**. No crees otro servicio. En local, `PETVERSE_DEVELOPER_TOOLS=true npm start`. Guía completa: [desarrollo y controles](docs/DEVELOPMENT.md).
+
 ## Variables
 
 | Variable | Predeterminado | Uso |
@@ -58,6 +64,7 @@ Las actualizaciones quedan en modo manual. Referencias oficiales: [despliegue po
 | `DATABASE_PATH` | `data/petverse.sqlite` | Archivo persistente |
 | `DATABASE_URL` | sin definir | PostgreSQL si existe; tiene prioridad sobre SQLite |
 | `PETVERSE_TRIAL_MODE` | sin definir | `render-free` muestra límites de la prueba |
+| `PETVERSE_DEVELOPER_TOOLS` | apagado | `true` habilita el laboratorio aislado; plantilla Free activada |
 | `NODE_ENV` | desarrollo | `production` activa Secure y exige HTTPS |
 | `PUBLIC_ORIGIN` | `RENDER_EXTERNAL_URL` en Render, o HTTP local | URL exacta de producción; fijar para dominio propio |
 
@@ -70,7 +77,7 @@ npm run check
 npm test
 ```
 
-Pruebas de edad, personalidad, inactividad, reloj que retrocede, sorpresa reproducible, objeto único, aislamiento, CSRF, fechas manipuladas, persistencia e idempotencia concurrente. Relojes controlados solo en tests, sin trucos de evolución habilitados en producción.
+Pruebas de edad, personalidad, inactividad, reloj que retrocede, sorpresas, aislamiento, CSRF, fechas manipuladas, persistencia e idempotencia concurrente. El laboratorio tiene reloj simulado e historial separado; el juego normal no acepta adelantos de edad. Se comprueba que simular el día 101 no envejece ni cambia la mascota real.
 
 QA de navegador opcional: `npm run test:browser` requiere Playwright y Chromium disponibles. En un entorno de desarrollo puedes preparar las herramientas con `npm install --no-save --package-lock=false playwright` y `npx playwright install chromium`. Si usas un Chromium de sistema, configura `CHROMIUM_PATH` con su ruta. Las herramientas de QA no son dependencias de producción; el script guarda capturas en `test-results/`, excluido de Git.
 
@@ -80,6 +87,6 @@ Para verificar PostgreSQL real, configura `PETVERSE_TEST_DATABASE_URL` apuntando
 
 ## Documentación
 
-[Visión](docs/VISION.md), [arquitectura](docs/ARCHITECTURE.md), [diseño de juego](docs/GAME_DESIGN.md), [decisiones](docs/DECISIONS.md), [roadmap](docs/ROADMAP.md), [progreso](docs/PROGRESS.md).
+[Visión](docs/VISION.md), [arquitectura](docs/ARCHITECTURE.md), [diseño de juego](docs/GAME_DESIGN.md), [desarrollo](docs/DEVELOPMENT.md), [decisiones](docs/DECISIONS.md), [roadmap](docs/ROADMAP.md), [progreso](docs/PROGRESS.md).
 
 Próxima prioridad: hosting persistente, cuentas permanentes y validación del vínculo con usuarios antes de monetizar.

@@ -47,3 +47,7 @@ Oportunidades con inicio, fin, elegibilidad y recuperación única. Guardar fech
 ## Accesibilidad y relación saludable
 
 Botones táctiles, etiquetas, valores textuales, `aria-live`, diseño adaptable y `prefers-reduced-motion`. Sin push, rachas ni culpa por ausencia. Límites de prueba visibles y compartidos consentidos.
+
+## Laboratorio para desarrollo
+
+El entorno de validación puede activar una mascota aparte con reloj simulado, saltos y reseteo. Esto permite probar hoy reglas y apariencias de etapas, sin alterar partidas reales. Sus datos y tarjetas están marcados como simulados y no generan métricas del juego. Las reglas temporales y la prohibición de acelerar edad de jugadores siguen vigentes. Ver [DEVELOPMENT](DEVELOPMENT.md).

@@ -17,7 +17,7 @@ async function start(port = 0) {
   store = process.env.PETVERSE_TEST_DATABASE_URL
     ? await openPostgresStore(process.env.PETVERSE_TEST_DATABASE_URL, { schema: pgSchema, createSchema: true })
     : openStore(file);
-  server = createApp({ store, freeTrial: Boolean(process.env.PETVERSE_TEST_DATABASE_URL) });
+  server = createApp({ store, freeTrial: Boolean(process.env.PETVERSE_TEST_DATABASE_URL), developerTools: true });
   await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
   return server.address().port;
 }
@@ -63,9 +63,42 @@ try {
   await card.saveAs('test-results/recuerdo.png');
   await page.evaluate(() => { document.querySelector('#notice').textContent = ''; });
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
+  // Una lectura normal lenta no debe reemplazar la vista del laboratorio recién abierto.
+  let releaseOldRead;
+  const oldReadGate = new Promise(resolve => { releaseOldRead = resolve; });
+  await page.route('**/api/state', async route => {
+    const response = await route.fetch(); await oldReadGate; await route.fulfill({ response });
+  }, { times: 1 });
+  const pendingRead = page.waitForRequest(request => new URL(request.url()).pathname === '/api/state');
+  await page.evaluate(() => window.dispatchEvent(new Event('online'))); await pendingRead;
+  // Probar desde el móvil las seis transiciones sin esperar días reales.
+  await page.locator('#settings-button').click(); await page.locator('#lab-entry').click();
+  await page.locator('#lab-panel').waitFor({ state: 'visible' });
+  const oldReadResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/state');
+  releaseOldRead(); await oldReadResponse;
+  for (const stage of ['baby', 'child', 'juvenile', 'teen', 'adult', 'advanced']) {
+    await page.locator('#lab-next').click();
+    await page.waitForFunction(s => document.querySelector('#pet-scene').dataset.stage === s, stage);
+  }
+  assert.equal(await page.locator('#lab-next').isDisabled(), true);
+  const simulated = await page.evaluate(() => fetch('/api/lab/state').then(response => response.json()));
+  assert.equal(simulated.pet.ageDays, 101);
+  const unchanged = await page.evaluate(() => fetch('/api/state').then(response => response.json()));
+  assert.equal(unchanged.pet.id, state.pet.id); assert.equal(unchanged.pet.bornAt, state.pet.bornAt);
+  assert.deepEqual(unchanged.pet.activities, state.pet.activities); assert.equal(unchanged.pet.ageDays, 0);
+  await page.evaluate(() => { document.querySelector('#notice').textContent = ''; });
+  await page.screenshot({ path: 'test-results/laboratorio-mobile.png', fullPage: true });
+  const labDownload = page.waitForEvent('download'); await page.locator('#share-button').click();
+  await (await labDownload).saveAs('test-results/laboratorio-card.png');
+  await page.reload(); await page.locator('#lab-panel').waitFor({ state: 'visible' });
+  assert.equal((await page.evaluate(() => fetch('/api/lab/state').then(response => response.json()))).pet.id, simulated.pet.id);
   // El mismo navegador conserva su cookie a través de un cierre/reapertura real del backend.
   await stop(); await start(port);
-  await page.reload(); await page.locator('#pet-panel').waitFor({ state: 'visible' });
+  await page.reload(); await page.locator('#lab-panel').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#pet-scene').getAttribute('data-stage'), 'advanced');
+  await page.locator('#lab-reset').click();
+  await page.waitForFunction(() => document.querySelector('#pet-scene').dataset.stage === 'newborn');
+  await page.locator('#lab-exit').click(); await page.locator('#lab-panel').waitFor({ state: 'hidden' });
   assert.equal(await page.locator('#heading').textContent(), 'Hola, Mochi.');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
@@ -87,7 +120,7 @@ try {
   assert.equal((await page.request.get(`${origin}/icon-512.png`)).status(), 200);
   assert.deepEqual(errors, [], 'Sin errores de navegador');
   await context.close();
-  console.log('QA Chromium móvil/desktop: adopción, cuidados, recarga, reloj, privacidad, PNG, reinicio, offline, 320 px y movimiento reducido OK.');
+  console.log('QA móvil/desktop: juego, laboratorio día 101, aislamiento, reanudación, reinicio, PNG, offline, 320 px y movimiento reducido OK.');
 } finally {
   await browser.close(); if (server?.listening) await stop();
   if (process.env.PETVERSE_TEST_DATABASE_URL) {

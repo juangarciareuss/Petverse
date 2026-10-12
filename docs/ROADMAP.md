@@ -10,6 +10,8 @@
 | 6. Visual | SVG, reacciones y tarjeta PNG; pendientes arte final, escenas y vídeo |
 | 7. Validación | Pruebas automáticas y navegador local; pendientes hosting, usuarios reales y carga amplia |
 
+Laboratorio implementado para validar etapas y acontecimientos hoy, con reloj simulado aislado. El propietario comunica que la prueba Free ya abre; confirmar la actualización del laboratorio en ese servicio y ampliar validación con usuarios.
+
 ## Siguientes prioridades
 
 1. Activar la prueba Free con PostgreSQL (30 días), verificar hosting HTTPS y acordar alojamiento permanente/exportaciones antes del vencimiento.

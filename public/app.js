@@ -1,5 +1,12 @@
 const $ = selector => document.querySelector(selector);
 let csrf, state, analytics = false, busy = false, expanded = false, installPrompt, reactionTimer, noticeTimer;
+let mode = 'game', developerTools = false, viewRevision = 0;
+const statePath = () => mode === 'sandbox' ? 'lab/state' : 'state';
+const carePath = () => mode === 'sandbox' ? 'lab/actions' : 'actions';
+function applyState(value) {
+  state = value; mode = value.mode === 'sandbox' ? 'sandbox' : 'game';
+  try { sessionStorage.setItem('pv_view', mode); } catch { /* preferencia opcional */ }
+}
 const endpoint = async (path, data, key) => {
   const headers = {};
   if (data !== undefined) { headers['Content-Type'] = 'application/json'; if (csrf) headers['X-CSRF-Token'] = csrf; }
@@ -24,8 +31,10 @@ function networkError(error) {
   return 'No hemos podido confirmar el guardado. Comprueba tu conexión y vuelve a intentar.';
 }
 function setBusy(value) {
+  if (value) viewRevision++;
   busy = value;
-  for (const button of document.querySelectorAll('[data-action], #pet-touch, #adopt-form button')) button.disabled = value || (button.id === 'pet-touch' && !state?.pet);
+  for (const button of document.querySelectorAll('[data-action], [data-lab-step], #pet-touch, #adopt-form button, #lab-entry, #lab-exit, #lab-reset')) button.disabled = value || (button.id === 'pet-touch' && !state?.pet);
+  $('#lab-next').disabled = value || !state?.pet?.nextStage;
   $('#adopt-form').setAttribute('aria-busy', String(value));
 }
 function renderHistory() {
@@ -52,10 +61,25 @@ function renderHistory() {
 function render() {
   $('#loading').hidden = true; $('#offline').hidden = true; $('#game').hidden = false;
   const pet = state.pet, adopted = Boolean(pet);
+  const inLab = mode === 'sandbox';
+  $('#lab-panel').hidden = !inLab;
+  $('#lab-entry-section').hidden = !developerTools;
   for (const id of ['pet-panel', 'care-section', 'story-section', 'share-button']) $(`#${id}`).hidden = !adopted;
   $('#adoption-panel').hidden = adopted; $('#pet-touch').disabled = !adopted || busy;
-  if (!pet) return;
-  $('#heading').textContent = `Hola, ${pet.name}.`; $('#subtitle').textContent = 'Qué bonito tener un ratito para vosotros.';
+  if (!pet) {
+    $('#heading').textContent = 'Alguien muy especial está a punto de llegar.';
+    $('#subtitle').textContent = 'Una nueva amistad, a tu ritmo.';
+    $('#pet-scene').dataset.color = 'peach'; $('#pet-scene').dataset.stage = 'newborn'; $('#pet-scene').dataset.expression = 'calm';
+    $('#stage-badge').textContent = 'LUMIS · DÍA 0';
+    $('#pet-art').setAttribute('aria-label', 'Lumis, una mascota suave con grandes orejas');
+    $('#pet-mood').textContent = 'Un pequeño Lumis busca a su persona.';
+    return;
+  }
+  $('#heading').textContent = `Hola, ${pet.name}.`; $('#subtitle').textContent = inLab ? 'Tu compañero de pruebas. Puedes avanzar el tiempo y volver a empezar.' : 'Qué bonito tener un ratito para vosotros.';
+  if (inLab) {
+    $('#lab-time').textContent = `Día simulado ${pet.ageDays} · ${new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' }).format(state.serverNow)}`;
+    $('#lab-next').disabled = busy || !pet.nextStage;
+  }
   $('#stage-badge').textContent = `${pet.stageLabel.toUpperCase()} · DÍA ${pet.ageDays}`;
   $('#pet-scene').dataset.color = pet.appearance.color; $('#pet-scene').dataset.stage = pet.stage; $('#pet-scene').dataset.expression = pet.expression;
   $('#pet-touch').setAttribute('aria-label', `Acariciar a ${pet.name}`);
@@ -74,7 +98,7 @@ function render() {
   if (pet.nextStage) {
     const hours = Math.max(0, Math.ceil((pet.nextStage.at - state.serverNow) / 3_600_000));
     const duration = hours >= 24 ? `${Math.ceil(hours / 24)} días` : `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
-    $('#growth-description').textContent = `Próxima etapa: ${pet.nextStage.label.toLowerCase()}, en ${duration}. El tiempo sigue contando aunque cierres el juego.`;
+    $('#growth-description').textContent = inLab ? `Próxima etapa: ${pet.nextStage.label.toLowerCase()}. Pulsa «Siguiente etapa» para verla ahora.` : `Próxima etapa: ${pet.nextStage.label.toLowerCase()}, en ${duration}. El tiempo sigue contando aunque cierres el juego.`;
   } else $('#growth-description').textContent = `Su historia sigue creciendo. Rasgo especial: ${pet.specialTraits.join(', ')}.`;
   $('#inventory').hidden = pet.inventory.length === 0;
   $('#inventory').textContent = `Sus pequeños tesoros: ${pet.inventory.map(item => item.label).join(', ')}. Solo recuerdos, sin ventajas de progreso.`;
@@ -103,7 +127,7 @@ async function command(path, payload) {
     const result = await endpoint(path, payload, pending.key);
     try { sessionStorage.removeItem('pv_pending'); } catch { /* opcional */ }
     // Un replay puede contener una foto anterior: refrescamos la vista autoritativa.
-    state = result.replayed ? await endpoint('state') : result;
+    applyState(result.replayed ? await endpoint(result.mode === 'sandbox' ? 'lab/state' : 'state') : result);
     render(); animate(result.reaction); notify(result.message);
   } catch (error) {
     if (error.code) try { sessionStorage.removeItem('pv_pending'); } catch { /* opcional */ }
@@ -116,9 +140,14 @@ async function bootstrap() {
     let session = await endpoint('session');
     if (!session.authenticated) session = await endpoint('session', {});
     csrf = session.csrf; analytics = session.analytics;
+    developerTools = session.developerTools === true;
+    mode = 'game';
+    try { if (developerTools && sessionStorage.getItem('pv_view') === 'sandbox') mode = 'sandbox'; } catch { /* preferencia opcional */ }
     $('#trial-notice').textContent = session.trialNotice ?? ''; $('#trial-notice').hidden = !session.trialNotice;
     $('#analytics-consent').checked = analytics;
-    state = await endpoint('state'); render();
+    let value = await endpoint(statePath());
+    if (mode === 'sandbox' && !value.pet) value = await endpoint('state');
+    applyState(value); render();
   } catch (error) {
     $('#loading').hidden = true; $('#offline').hidden = false; $('#game').hidden = true;
     $('#offline-message').textContent = error.code ? error.message : 'Necesitamos conexión para guardar los cuidados y consultar la edad de tu mascota.';
@@ -126,8 +155,18 @@ async function bootstrap() {
   }
 }
 $('#adopt-form').addEventListener('submit', event => { event.preventDefault(); command('adopt', { name: $('#pet-name').value.trim() }); });
-for (const button of document.querySelectorAll('[data-action]')) button.addEventListener('click', () => command('actions', { action: button.dataset.action }));
-$('#pet-touch').addEventListener('click', () => command('actions', { action: 'pet' }));
+for (const button of document.querySelectorAll('[data-action]')) button.addEventListener('click', () => command(carePath(), { action: button.dataset.action }));
+$('#pet-touch').addEventListener('click', () => command(carePath(), { action: 'pet' }));
+$('#lab-entry').addEventListener('click', () => { $('#settings').close(); command('lab/start', {}); });
+for (const button of document.querySelectorAll('[data-lab-step]')) button.addEventListener('click', () => command('lab/advance', { step: button.dataset.labStep }));
+$('#lab-reset').addEventListener('click', () => command('lab/reset', {}));
+$('#lab-exit').addEventListener('click', async () => {
+  if (busy) return;
+  setBusy(true);
+  try { applyState(await endpoint('state')); render(); notify('Has vuelto a tu mascota y su tiempo real.'); }
+  catch (error) { notify(networkError(error)); }
+  finally { setBusy(false); }
+});
 $('#retry').addEventListener('click', bootstrap);
 $('#history-toggle').addEventListener('click', () => { expanded = !expanded; renderHistory(); });
 $('#settings-button').addEventListener('click', () => $('#settings').showModal());
@@ -139,8 +178,13 @@ $('#analytics-consent').addEventListener('change', async event => {
 });
 async function refresh() {
   if (!csrf || busy || document.hidden || $('#settings').open) return;
-  try { state = await endpoint('state'); render(); }
-  catch (error) { if (error.code === 'session_required') await bootstrap(); else networkError(error); }
+  const requestedMode = mode, requestedRevision = viewRevision;
+  try {
+    const value = await endpoint(statePath());
+    if (busy || mode !== requestedMode || viewRevision !== requestedRevision) return;
+    applyState(value); render();
+  }
+  catch (error) { if (['session_required', 'lab_disabled'].includes(error.code)) await bootstrap(); else networkError(error); }
 }
 setInterval(refresh, 60_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
@@ -164,7 +208,7 @@ $('#share-button').addEventListener('click', async () => {
     const canvas = document.createElement('canvas'); canvas.width = 900; canvas.height = 1100;
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#eff2e5'; ctx.fillRect(0, 0, 900, 1100);
     ctx.textAlign = 'center'; ctx.fillStyle = '#385b43'; ctx.font = 'bold 44px system-ui'; ctx.fillText('petverse.', 450, 100);
-    ctx.font = '24px system-ui'; ctx.fillStyle = '#7b896c'; ctx.fillText('Una pequeña amistad que crece', 450, 157);
+    ctx.font = '24px system-ui'; ctx.fillStyle = '#7b896c'; ctx.fillText(mode === 'sandbox' ? 'LABORATORIO · TIEMPO SIMULADO' : 'Una pequeña amistad que crece', 450, 157);
     ctx.drawImage(image, 190, 245, 520, 540);
     ctx.fillStyle = '#385b43'; ctx.font = '48px Georgia'; ctx.fillText(pet.name, 450, 875, 790);
     ctx.font = '25px system-ui'; ctx.fillStyle = '#7b896c'; ctx.fillText(`${pet.stageLabel} · ${pet.ageDays} días contigo`, 450, 929);

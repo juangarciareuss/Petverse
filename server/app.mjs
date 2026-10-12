@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { timingSafeEqual } from 'node:crypto';
 import { adopt, welcomeEvent, reconcile, interact, publicPet, GameError, validateName } from './domain.mjs';
 import { hash } from './store.mjs';
+import { createSandbox, sandboxState, advanceSandbox, careInSandbox } from './lab.mjs';
 
 const PUBLIC = resolve(fileURLToPath(new URL('../public/', import.meta.url)));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
@@ -25,11 +26,12 @@ async function body(req) {
   return value;
 }
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
-export function createApp({ store, clock = Date.now, publicOrigin, production = false, freeTrial = false }) {
+export function createApp({ store, clock = Date.now, publicOrigin, production = false, freeTrial = false, developerTools = false }) {
   if (production && (!publicOrigin || !publicOrigin.startsWith('https://'))) throw new Error('Producción requiere PUBLIC_ORIGIN con HTTPS.');
   if (publicOrigin && new URL(publicOrigin).origin !== publicOrigin) throw new Error('PUBLIC_ORIGIN debe ser solo un origen, sin ruta ni barra final.');
   const sessionLimits = new Map();
   const trialNotice = freeTrial ? 'Prueba gratuita en Render: la base de datos caduca 30 días después de su creación. El servidor puede tardar en despertar. No es almacenamiento permanente.' : null;
+  const features = { trialNotice, developerTools };
   const response = (res, status, data, headers = {}) => {
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
     res.end(JSON.stringify(data));
@@ -70,9 +72,9 @@ export function createApp({ store, clock = Date.now, publicOrigin, production = 
       }
       let session = await store.session(cookie(req), now);
       if (url.pathname === '/api/session') {
-        if (req.method === 'GET') return response(res, 200, session ? { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics), trialNotice } : { authenticated: false, trialNotice });
+        if (req.method === 'GET') return response(res, 200, session ? { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics), ...features } : { authenticated: false, ...features });
         await body(req);
-        if (session) return response(res, 200, { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics), trialNotice });
+        if (session) return response(res, 200, { authenticated: true, csrf: session.csrf, analytics: Boolean(session.analytics), ...features });
         const address = req.socket.remoteAddress ?? 'unknown';
         const window = Math.floor(now / 3_600_000);
         for (const [key, value] of sessionLimits) if (value.window !== window) sessionLimits.delete(key);
@@ -80,11 +82,17 @@ export function createApp({ store, clock = Date.now, publicOrigin, production = 
         if (entry.count >= 20 || sessionLimits.size > 10_000) throw new GameError('Demasiadas sesiones de prueba. Inténtalo más tarde.', 429);
         entry.count++; sessionLimits.set(address, entry);
         const created = await store.createSession(now);
-        return response(res, 201, { authenticated: true, csrf: created.csrf, analytics: false, trialNotice }, {
+        return response(res, 201, { authenticated: true, csrf: created.csrf, analytics: false, ...features }, {
           'Set-Cookie': `pv_session=${created.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${production ? '; Secure' : ''}`
         });
       }
       if (!session) throw new GameError('Inicia una sesión de prueba para continuar.', 401, 'session_required');
+      const labRoute = url.pathname.startsWith('/api/lab/');
+      if (labRoute && !developerTools) throw new GameError('El laboratorio no está activado en este servidor.', 404, 'lab_disabled');
+      if (url.pathname === '/api/lab/state' && req.method === 'GET') {
+        const sandbox = await store.transaction(() => store.sandbox(session.userId), session.userId);
+        return response(res, 200, sandbox ? sandboxState(sandbox) : { mode: 'sandbox', pet: null, events: [], lab: null });
+      }
       if (url.pathname === '/api/state' && req.method === 'GET') {
         return response(res, 200, await store.transaction(() => snapshot(session, now), session.userId));
       }
@@ -96,11 +104,12 @@ export function createApp({ store, clock = Date.now, publicOrigin, production = 
         await store.transaction(() => store.analytics(session.userId, data.analytics), session.userId);
         return response(res, 200, { analytics: data.analytics });
       }
-      if (!['/api/adopt', '/api/actions'].includes(url.pathname)) throw new GameError('No encontrado.', 404);
+      const labCommands = ['/api/lab/start', '/api/lab/reset', '/api/lab/advance', '/api/lab/actions'];
+      if (!['/api/adopt', '/api/actions', ...labCommands].includes(url.pathname)) throw new GameError('No encontrado.', 404);
       const key = req.headers['idempotency-key'];
       if (typeof key !== 'string' || !/^[\w-]{16,80}$/.test(key)) throw new GameError('Se requiere un identificador único de petición.');
       // Campos extra (edad, propietario, recompensas, estado) nunca forman parte de comandos válidos.
-      const field = url.pathname === '/api/adopt' ? 'name' : 'action';
+      const field = ['/api/lab/start', '/api/lab/reset'].includes(url.pathname) ? null : url.pathname === '/api/lab/advance' ? 'step' : url.pathname === '/api/adopt' ? 'name' : 'action';
       if (Object.keys(data).some(k => k !== field)) throw new GameError('La petición contiene campos no permitidos.');
       if (field === 'name') data.name = validateName(data.name);
       const fingerprint = hash(JSON.stringify({ path: url.pathname, ...data }));
@@ -109,6 +118,21 @@ export function createApp({ store, clock = Date.now, publicOrigin, production = 
         if (prior) {
           if (prior.fingerprint !== fingerprint) throw new GameError('Ese identificador ya pertenece a otra petición.', 409, 'idempotency_conflict');
           return { ...JSON.parse(prior.response), replayed: true };
+        }
+        if (labRoute) {
+          let sandbox = await store.sandbox(session.userId);
+          let output;
+          if (['/api/lab/start', '/api/lab/reset'].includes(url.pathname)) {
+            if (!sandbox || url.pathname === '/api/lab/reset') sandbox = createSandbox(await store.pet(session.userId), now);
+            output = { ...sandboxState(sandbox), reaction: 'adopt', message: 'Laboratorio listo. Esta mascota y su reloj son de prueba.' };
+          } else {
+            if (!sandbox) throw new GameError('Abre primero el laboratorio.', 409, 'lab_not_started');
+            output = url.pathname === '/api/lab/advance' ? advanceSandbox(sandbox, data.step) : careInSandbox(sandbox, data.action);
+          }
+          // No tocar pets, events ni métricas del juego: el laboratorio vive en su propia tabla.
+          await store.saveSandbox(session.userId, sandbox);
+          await store.saveRequest(session.userId, key, fingerprint, output, now);
+          return output;
         }
         if (url.pathname === '/api/adopt') {
           if (await store.pet(session.userId)) throw new GameError('Ya tienes una mascota. Cuídala para continuar vuestra historia.', 409, 'already_adopted');
