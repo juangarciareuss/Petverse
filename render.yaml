@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: petverse
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: PUBLIC_ORIGIN
+        sync: false
+    disk:
+      name: petverse-data
+      mountPath: /data
+      sizeGB: 1
